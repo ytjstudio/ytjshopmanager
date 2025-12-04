@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   Clock,
   Store,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -172,6 +173,34 @@ export default function Admin() {
       title: "Copied!",
       description: "Activation code copied to clipboard.",
     });
+  };
+
+  const handleDeleteUser = async (profileId: string, email: string) => {
+    if (!confirm(`Are you sure you want to delete the user "${email}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", profileId);
+
+      if (error) throw error;
+
+      toast({
+        title: "User deleted",
+        description: `${email} has been removed from the system.`,
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error deleting user",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const pendingCount = profiles.filter((p) => p.status === "pending").length;
@@ -518,6 +547,7 @@ export default function Admin() {
                           <TableHead>Status</TableHead>
                           <TableHead>Registered</TableHead>
                           <TableHead>Activated</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -553,6 +583,16 @@ export default function Admin() {
                                     "MMM d, yyyy"
                                   )
                                 : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDeleteUser(profile.id, profile.email)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}

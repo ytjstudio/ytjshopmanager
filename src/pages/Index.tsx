@@ -23,6 +23,11 @@ export default function Index() {
     }
   }, [user, loading, navigate]);
 
+  // Show landing page even while loading - don't block on auth check
+  if (!loading && user) {
+    return null; // Will redirect via useEffect
+  }
+
   const features = [
     {
       icon: Package,
