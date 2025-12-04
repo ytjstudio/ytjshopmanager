@@ -227,10 +227,6 @@ export default function ActivationModal({ open, onOpenChange }: ActivationModalP
                   <span className="font-medium">{BANK_DETAILS.bankName}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Branch Code:</span>
-                  <span className="font-medium font-mono">{BANK_DETAILS.branchCode}</span>
-                </div>
-                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Reference:</span>
                   <span className="font-medium">{profile?.business_name || "Your Business Name"}</span>
                 </div>

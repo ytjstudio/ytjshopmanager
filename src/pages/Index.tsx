@@ -55,7 +55,7 @@ export default function Index() {
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
               <Store className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="font-bold text-xl">ShopManager Pro</span>
+            <span className="font-bold text-xl">Ruto Shop Manager</span>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" asChild>
@@ -156,7 +156,7 @@ export default function Index() {
                 Ready to Get Started?
               </h2>
               <p className="text-muted-foreground max-w-xl mx-auto mb-8">
-                Join hundreds of businesses already using ShopManager Pro to streamline their operations.
+                Join hundreds of businesses already using Ruto Shop Manager to streamline their operations.
               </p>
               <Button size="lg" asChild className="gradient-success hover:opacity-90">
                 <Link to="/auth">
@@ -174,10 +174,10 @@ export default function Index() {
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Store className="h-5 w-5 text-primary" />
-            <span className="font-semibold">ShopManager Pro</span>
+            <span className="font-semibold">Ruto Shop Manager</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} ShopManager Pro. All rights reserved.
+            © {new Date().getFullYear()} RutoShopManager. All rights reserved.
           </p>
         </div>
       </footer>

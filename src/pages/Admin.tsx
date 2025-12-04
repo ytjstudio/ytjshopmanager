@@ -231,7 +231,7 @@ export default function Admin() {
             </div>
             <div>
               <h1 className="font-bold">Admin Portal</h1>
-              <p className="text-xs text-muted-foreground">ShopManager Pro</p>
+              <p className="text-xs text-muted-foreground">Ruto Shop Manager</p>
             </div>
           </div>
           <Button variant="outline" onClick={() => navigate("/")}>
