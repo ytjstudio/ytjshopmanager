@@ -35,6 +35,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const checkAndDeactivateExpiredAccount = async (profileData: Profile) => {
+    if (profileData.status === "active" && profileData.activated_at) {
+      const activatedDate = new Date(profileData.activated_at);
+      const oneYearLater = new Date(activatedDate);
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+      
+      if (new Date() > oneYearLater) {
+        // Account has expired, deactivate it
+        await supabase
+          .from("profiles")
+          .update({ status: "pending" })
+          .eq("id", profileData.id);
+        
+        return { ...profileData, status: "pending" as const };
+      }
+    }
+    return profileData;
+  };
+
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
@@ -43,7 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (data && !error) {
-      setProfile(data as Profile);
+      const checkedProfile = await checkAndDeactivateExpiredAccount(data as Profile);
+      setProfile(checkedProfile);
     }
   };
 
