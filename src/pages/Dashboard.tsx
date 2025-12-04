@@ -110,7 +110,7 @@ export default function Dashboard() {
     },
     {
       title: "Total Revenue",
-      value: `R ${stats.totalRevenue.toFixed(2)}`,
+      value: `₦${stats.totalRevenue.toLocaleString()}`,
       icon: DollarSign,
       color: "text-primary",
       bgColor: "bg-primary/10",

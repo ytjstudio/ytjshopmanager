@@ -352,7 +352,7 @@ export default function Inventory() {
                           {item.description || "-"}
                         </TableCell>
                         <TableCell className="text-right">
-                          R {Number(item.price).toFixed(2)}
+                          ₦{Number(item.price).toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
                           <span

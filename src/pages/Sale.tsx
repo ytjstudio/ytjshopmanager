@@ -279,7 +279,7 @@ export default function Sale() {
                       <span>{ci.item.name}</span>
                       <span className="text-gray-500 ml-2">x{ci.quantity}</span>
                     </div>
-                    <span>R {(ci.item.price * ci.quantity).toFixed(2)}</span>
+                    <span>₦{(ci.item.price * ci.quantity).toLocaleString()}</span>
                   </div>
                 ))}
               </div>
@@ -287,7 +287,7 @@ export default function Sale() {
               <div className="border-t border-dashed border-gray-300 mt-4 pt-4">
                 <div className="flex justify-between text-lg font-bold">
                   <span>TOTAL</span>
-                  <span>R {totalAmount.toFixed(2)}</span>
+                  <span>₦{totalAmount.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -356,7 +356,7 @@ export default function Sale() {
                     </p>
                     <div className="flex justify-between items-center mt-2">
                       <span className="font-bold text-primary">
-                        R {Number(item.price).toFixed(2)}
+                        ₦{Number(item.price).toLocaleString()}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         Stock: {item.quantity}
@@ -413,7 +413,7 @@ export default function Sale() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{ci.item.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            R {Number(ci.item.price).toFixed(2)} each
+                            ₦{Number(ci.item.price).toLocaleString()} each
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -451,7 +451,7 @@ export default function Sale() {
                     <div className="border-t pt-4">
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total</span>
-                        <span>R {totalAmount.toFixed(2)}</span>
+                        <span>₦{totalAmount.toLocaleString()}</span>
                       </div>
                     </div>
 

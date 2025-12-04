@@ -173,7 +173,7 @@ export default function Sales() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold">R {totalRevenue.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">₦{totalRevenue.toLocaleString()}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-success/10">
                   <TrendingUp className="h-6 w-6 text-success" />
@@ -201,7 +201,7 @@ export default function Sales() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Average Sale</p>
-                  <p className="text-2xl font-bold">R {averageSale.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">₦{averageSale.toLocaleString()}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-info/10">
                   <BarChart3 className="h-6 w-6 text-info" />
@@ -247,10 +247,10 @@ export default function Sales() {
                         </TableCell>
                         <TableCell className="text-right">{day.count}</TableCell>
                         <TableCell className="text-right font-semibold text-success">
-                          R {day.total.toFixed(2)}
+                          ₦{day.total.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
-                          R {(day.total / day.count).toFixed(2)}
+                          ₦{(day.total / day.count).toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -295,7 +295,7 @@ export default function Sales() {
                           {format(new Date(sale.created_at), "h:mm a")}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
-                          R {Number(sale.total_amount).toFixed(2)}
+                          ₦{Number(sale.total_amount).toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))}
