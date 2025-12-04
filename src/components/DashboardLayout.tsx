@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
               <Store className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold">ShopManager</span>
+            <span className="font-semibold">Ruto Shop</span>
           </div>
         </div>
         
@@ -104,8 +104,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Store className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-bold text-foreground">ShopManager</h1>
-              <p className="text-xs text-muted-foreground">Pro Edition</p>
+              <h1 className="font-bold text-foreground">Ruto Shop</h1>
+              <p className="text-xs text-muted-foreground">Manager</p>
             </div>
           </div>
 
