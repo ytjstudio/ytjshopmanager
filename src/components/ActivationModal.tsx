@@ -53,15 +53,12 @@ export default function ActivationModal({ open, onOpenChange }: ActivationModalP
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("receipts")
-        .getPublicUrl(fileName);
-
+      // Bucket is private; store the object path and generate signed URLs on demand.
       const { error: insertError } = await supabase
         .from("payment_receipts")
         .insert({
           profile_id: profile.id,
-          receipt_url: publicUrl,
+          receipt_url: fileName,
           whatsapp_number: whatsappNumber,
         });
 
@@ -84,6 +81,7 @@ export default function ActivationModal({ open, onOpenChange }: ActivationModalP
       setIsUploading(false);
     }
   };
+
 
   const handleActivation = async () => {
     if (!activationCode.trim() || !profile) {
