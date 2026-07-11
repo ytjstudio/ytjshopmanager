@@ -30,13 +30,13 @@ const navItems = [
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { profile, signOut, loading } = useAuth();
+  const { profile, isAdmin, signOut, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showActivationModal, setShowActivationModal] = useState(false);
 
-  const isPending = profile?.status === "pending";
+  const isPending = profile?.status === "pending" && !isAdmin;
 
   useEffect(() => {
     if (!loading && isPending) {

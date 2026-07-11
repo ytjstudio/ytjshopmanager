@@ -19,6 +19,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  isAdmin: boolean;
   loading: boolean;
   signUp: (email: string, password: string, businessName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const checkAndDeactivateExpiredAccount = async (profileData: Profile) => {
@@ -67,6 +69,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchIsAdmin = async (userId: string) => {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    setIsAdmin(!!data);
+  };
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -76,9 +88,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           setTimeout(() => {
             fetchProfile(session.user.id);
+            fetchIsAdmin(session.user.id);
           }, 0);
         } else {
           setProfile(null);
+          setIsAdmin(false);
         }
 
         setLoading(false);
@@ -91,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         fetchProfile(session.user.id);
+        fetchIsAdmin(session.user.id);
       }
       
       setLoading(false);
@@ -141,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
+    setIsAdmin(false);
   };
 
   const refreshProfile = async () => {
@@ -155,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         profile,
+        isAdmin,
         loading,
         signUp,
         signIn,

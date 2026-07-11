@@ -23,7 +23,7 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const { profile, loading } = useAuth();
+  const { profile, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalItems: 0,
@@ -39,10 +39,10 @@ export default function Dashboard() {
   }, [profile, loading, navigate]);
 
   useEffect(() => {
-    if (profile?.status === "active") {
+    if (profile?.status === "active" || isAdmin) {
       fetchStats();
     }
-  }, [profile]);
+  }, [profile, isAdmin]);
 
   const fetchStats = async () => {
     if (!profile) return;
@@ -84,7 +84,7 @@ export default function Dashboard() {
     );
   }
 
-  const isActive = profile?.status === "active";
+  const isActive = profile?.status === "active" || isAdmin;
 
   const statCards = [
     {
