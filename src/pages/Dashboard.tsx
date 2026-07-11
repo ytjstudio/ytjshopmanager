@@ -84,7 +84,7 @@ export default function Dashboard() {
     );
   }
 
-  const isActive = profile?.status === "active";
+  const isActive = profile?.status === "active" || isAdmin;
 
   const statCards = [
     {
