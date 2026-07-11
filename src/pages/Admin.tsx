@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -16,10 +14,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ADMIN_PASSWORD } from "@/lib/constants";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Shield,
-  Lock,
   Key,
   Receipt,
   Users,
@@ -32,6 +29,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
+
 
 interface PaymentReceipt {
   id: string;
