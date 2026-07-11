@@ -23,7 +23,7 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const { profile, loading } = useAuth();
+  const { profile, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalItems: 0,
