@@ -53,15 +53,12 @@ export default function ActivationModal({ open, onOpenChange }: ActivationModalP
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("receipts")
-        .getPublicUrl(fileName);
-
+      // Bucket is private; store the object path and generate signed URLs on demand.
       const { error: insertError } = await supabase
         .from("payment_receipts")
         .insert({
           profile_id: profile.id,
-          receipt_url: publicUrl,
+          receipt_url: fileName,
           whatsapp_number: whatsappNumber,
         });
 
@@ -85,6 +82,7 @@ export default function ActivationModal({ open, onOpenChange }: ActivationModalP
     }
   };
 
+
   const handleActivation = async () => {
     if (!activationCode.trim() || !profile) {
       toast({
@@ -98,67 +96,32 @@ export default function ActivationModal({ open, onOpenChange }: ActivationModalP
     setIsActivating(true);
 
     try {
-      // Check if code exists and is unused
-      const { data: codeData, error: codeError } = await supabase
-        .from("activation_codes")
-        .select("*")
-        .eq("code", activationCode.trim().toUpperCase())
-        .eq("is_used", false)
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke("redeem-activation-code", {
+        body: { code: activationCode.trim().toUpperCase() },
+      });
 
-      if (codeError) throw codeError;
-
-      if (!codeData) {
-        toast({
-          title: "Invalid code",
-          description: "This activation code is invalid or has already been used.",
-          variant: "destructive",
-        });
-        setIsActivating(false);
-        return;
-      }
-
-      // Mark code as used
-      const { error: updateCodeError } = await supabase
-        .from("activation_codes")
-        .update({
-          is_used: true,
-          used_by: profile.id,
-          used_at: new Date().toISOString(),
-        })
-        .eq("id", codeData.id);
-
-      if (updateCodeError) throw updateCodeError;
-
-      // Update profile status
-      const { error: updateProfileError } = await supabase
-        .from("profiles")
-        .update({
-          status: "active",
-          activated_at: new Date().toISOString(),
-        })
-        .eq("id", profile.id);
-
-      if (updateProfileError) throw updateProfileError;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       await refreshProfile();
 
       toast({
         title: "Account activated!",
-        description: "Your account is now fully active. Enjoy ShopManager Pro!",
+        description: "Your account is now fully active. Enjoy Ruto Shop Manager!",
       });
 
       onOpenChange(false);
     } catch (error: any) {
       toast({
         title: "Activation failed",
-        description: error.message,
+        description: error.message || "Could not redeem this code.",
         variant: "destructive",
       });
     } finally {
       setIsActivating(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -16,10 +14,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ADMIN_PASSWORD } from "@/lib/constants";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Shield,
-  Lock,
   Key,
   Receipt,
   Users,
@@ -32,6 +29,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
+
 
 interface PaymentReceipt {
   id: string;
@@ -65,8 +63,8 @@ interface Profile {
 }
 
 export default function Admin() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
+  const { user, loading: authLoading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
   const [codes, setCodes] = useState<ActivationCode[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -74,52 +72,71 @@ export default function Admin() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchData();
+    if (authLoading) return;
+    if (!user) {
+      setIsAdmin(false);
+      return;
     }
-  }, [isAuthenticated]);
+    (async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdmin(!!data);
+    })();
+  }, [user, authLoading]);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      toast({
-        title: "Welcome, Admin",
-        description: "You've successfully logged in.",
-      });
+  useEffect(() => {
+    if (isAdmin) fetchData();
+  }, [isAdmin]);
+
+  const signedUrlFor = async (receiptUrl: string): Promise<string | null> => {
+    // receipt_url may be either a legacy public URL or a bare file name
+    let path = receiptUrl;
+    const marker = "/receipts/";
+    const idx = receiptUrl.indexOf(marker);
+    if (idx !== -1) path = receiptUrl.substring(idx + marker.length);
+    const { data } = await supabase.storage
+      .from("receipts")
+      .createSignedUrl(path, 60 * 10);
+    return data?.signedUrl ?? null;
+  };
+
+  const openReceipt = async (receiptUrl: string) => {
+    const url = await signedUrlFor(receiptUrl);
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
     } else {
       toast({
-        title: "Invalid password",
-        description: "Please enter the correct admin password.",
+        title: "Could not open receipt",
+        description: "The file could not be located.",
         variant: "destructive",
       });
     }
   };
 
   const fetchData = async () => {
-    // Fetch receipts - handle the join differently due to RLS
     const { data: receiptsData } = await supabase
       .from("payment_receipts")
       .select("*")
       .order("created_at", { ascending: false });
 
-    // Fetch codes
     const { data: codesData } = await supabase
       .from("activation_codes")
       .select("*")
       .order("created_at", { ascending: false });
 
-    // Fetch profiles separately
     const { data: profilesData } = await supabase
       .from("profiles")
       .select("*")
       .order("created_at", { ascending: false });
 
-    // Map receipts with profile data
     if (receiptsData && profilesData) {
-      const mappedReceipts = receiptsData.map(receipt => ({
+      const mappedReceipts = receiptsData.map((receipt) => ({
         ...receipt,
-        profiles: profilesData.find(p => p.id === receipt.profile_id)
+        profiles: profilesData.find((p) => p.id === receipt.profile_id),
       }));
       setReceipts(mappedReceipts as PaymentReceipt[]);
     }
@@ -140,21 +157,11 @@ export default function Admin() {
 
   const handleGenerateCode = async () => {
     setIsGenerating(true);
-
     try {
       const newCode = generateCode();
-
-      const { error } = await supabase.from("activation_codes").insert({
-        code: newCode,
-      });
-
+      const { error } = await supabase.from("activation_codes").insert({ code: newCode });
       if (error) throw error;
-
-      toast({
-        title: "Code generated",
-        description: `New activation code: ${newCode}`,
-      });
-
+      toast({ title: "Code generated", description: `New activation code: ${newCode}` });
       fetchData();
     } catch (error: any) {
       toast({
@@ -169,30 +176,15 @@ export default function Admin() {
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
-    toast({
-      title: "Copied!",
-      description: "Activation code copied to clipboard.",
-    });
+    toast({ title: "Copied!", description: "Activation code copied to clipboard." });
   };
 
   const handleDeleteUser = async (profileId: string, email: string) => {
-    if (!confirm(`Are you sure you want to delete the user "${email}"? This action cannot be undone.`)) {
-      return;
-    }
-
+    if (!confirm(`Are you sure you want to delete the user "${email}"? This action cannot be undone.`)) return;
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", profileId);
-
+      const { error } = await supabase.from("profiles").delete().eq("id", profileId);
       if (error) throw error;
-
-      toast({
-        title: "User deleted",
-        description: `${email} has been removed from the system.`,
-      });
-
+      toast({ title: "User deleted", description: `${email} has been removed from the system.` });
       fetchData();
     } catch (error: any) {
       toast({
@@ -207,47 +199,47 @@ export default function Admin() {
   const activeCount = profiles.filter((p) => p.status === "active").length;
   const unusedCodes = codes.filter((c) => !c.is_used).length;
 
-  if (!isAuthenticated) {
+  if (authLoading || isAdmin === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!user || !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="absolute inset-0 gradient-hero opacity-5" />
-
-        <Card className="w-full max-w-md relative z-10 shadow-xl animate-scale-in">
+        <Card className="w-full max-w-md shadow-xl animate-scale-in">
           <CardHeader className="text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary shadow-glow mx-auto mb-4">
               <Shield className="w-8 h-8 text-primary-foreground" />
             </div>
             <CardTitle>Admin Portal</CardTitle>
             <CardDescription>
-              Enter your admin password to continue
+              {user
+                ? "Your account does not have admin access."
+                : "You must sign in with an admin account to continue."}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <div className="relative mt-1">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-              <Button type="submit" className="w-full gradient-primary hover:opacity-90">
-                Access Admin Portal
+          <CardContent className="space-y-3">
+            {!user && (
+              <Button
+                className="w-full gradient-primary hover:opacity-90"
+                onClick={() => navigate("/auth")}
+              >
+                Sign In
               </Button>
-            </form>
+            )}
+            <Button variant="outline" className="w-full" onClick={() => navigate("/")}>
+              Back to Home
+            </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -415,18 +407,13 @@ export default function Admin() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                asChild
+                                onClick={() => openReceipt(receipt.receipt_url)}
                               >
-                                <a
-                                  href={receipt.receipt_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <ExternalLink className="h-4 w-4 mr-2" />
-                                  View
-                                </a>
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                View
                               </Button>
                             </TableCell>
+
                           </TableRow>
                         ))}
                       </TableBody>
