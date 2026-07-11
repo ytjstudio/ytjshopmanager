@@ -407,18 +407,13 @@ export default function Admin() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                asChild
+                                onClick={() => openReceipt(receipt.receipt_url)}
                               >
-                                <a
-                                  href={receipt.receipt_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <ExternalLink className="h-4 w-4 mr-2" />
-                                  View
-                                </a>
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                View
                               </Button>
                             </TableCell>
+
                           </TableRow>
                         ))}
                       </TableBody>
