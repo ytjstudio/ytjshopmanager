@@ -37,7 +37,7 @@ interface Item {
 }
 
 export default function Inventory() {
-  const { profile, loading } = useAuth();
+  const { profile, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState<Item[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,13 +55,13 @@ export default function Inventory() {
     if (!loading && !profile) {
       navigate("/auth");
     }
-    if (!loading && profile?.status !== "active") {
+    if (!loading && profile?.status !== "active" && !isAdmin) {
       navigate("/dashboard");
     }
   }, [profile, loading, navigate]);
 
   useEffect(() => {
-    if (profile?.status === "active") {
+    if ((profile?.status === "active" || isAdmin)) {
       fetchItems();
     }
   }, [profile]);

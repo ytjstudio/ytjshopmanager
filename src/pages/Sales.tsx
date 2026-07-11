@@ -37,7 +37,7 @@ interface SalesByDate {
 }
 
 export default function Sales() {
-  const { profile, loading } = useAuth();
+  const { profile, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesByDate, setSalesByDate] = useState<SalesByDate[]>([]);
@@ -47,13 +47,13 @@ export default function Sales() {
     if (!loading && !profile) {
       navigate("/auth");
     }
-    if (!loading && profile?.status !== "active") {
+    if (!loading && profile?.status !== "active" && !isAdmin) {
       navigate("/dashboard");
     }
   }, [profile, loading, navigate]);
 
   useEffect(() => {
-    if (profile?.status === "active") {
+    if ((profile?.status === "active" || isAdmin)) {
       fetchSales();
     }
   }, [profile, dateRange]);
