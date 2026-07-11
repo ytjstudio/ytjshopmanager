@@ -39,10 +39,10 @@ export default function Dashboard() {
   }, [profile, loading, navigate]);
 
   useEffect(() => {
-    if (profile?.status === "active") {
+    if (profile?.status === "active" || isAdmin) {
       fetchStats();
     }
-  }, [profile]);
+  }, [profile, isAdmin]);
 
   const fetchStats = async () => {
     if (!profile) return;
