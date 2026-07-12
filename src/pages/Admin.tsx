@@ -74,7 +74,7 @@ export default function Admin() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      setIsAdmin(false);
+      navigate("/admin-login", { replace: true });
       return;
     }
     (async () => {
@@ -84,9 +84,14 @@ export default function Admin() {
         .eq("user_id", user.id)
         .eq("role", "admin")
         .maybeSingle();
-      setIsAdmin(!!data);
+      if (!data) {
+        await supabase.auth.signOut();
+        navigate("/admin-login", { replace: true });
+        return;
+      }
+      setIsAdmin(true);
     })();
-  }, [user, authLoading]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (isAdmin) fetchData();
