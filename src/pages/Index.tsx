@@ -109,7 +109,7 @@ export default function Index() {
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link to="/admin">
+              <Link to="/admin-login">
                 Admin Portal
               </Link>
             </Button>
