@@ -74,7 +74,7 @@ export default function Admin() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      setIsAdmin(false);
+      navigate("/admin-login", { replace: true });
       return;
     }
     (async () => {
@@ -84,9 +84,14 @@ export default function Admin() {
         .eq("user_id", user.id)
         .eq("role", "admin")
         .maybeSingle();
-      setIsAdmin(!!data);
+      if (!data) {
+        await supabase.auth.signOut();
+        navigate("/admin-login", { replace: true });
+        return;
+      }
+      setIsAdmin(true);
     })();
-  }, [user, authLoading]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (isAdmin) fetchData();
@@ -209,33 +214,8 @@ export default function Admin() {
 
   if (!user || !isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md shadow-xl animate-scale-in">
-          <CardHeader className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary shadow-glow mx-auto mb-4">
-              <Shield className="w-8 h-8 text-primary-foreground" />
-            </div>
-            <CardTitle>Admin Portal</CardTitle>
-            <CardDescription>
-              {user
-                ? "Your account does not have admin access."
-                : "You must sign in with an admin account to continue."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!user && (
-              <Button
-                className="w-full gradient-primary hover:opacity-90"
-                onClick={() => navigate("/auth")}
-              >
-                Sign In
-              </Button>
-            )}
-            <Button variant="outline" className="w-full" onClick={() => navigate("/")}>
-              Back to Home
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Redirecting…</p>
       </div>
     );
   }

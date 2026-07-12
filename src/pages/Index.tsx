@@ -64,9 +64,9 @@ export default function Index() {
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" asChild>
-              <Link to="/admin">
+              <Link to="/admin-login">
                 <Shield className="mr-2 h-4 w-4" />
-                Admin
+                Admin Portal
               </Link>
             </Button>
             <Button asChild className="gradient-primary hover:opacity-90">
@@ -109,7 +109,7 @@ export default function Index() {
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link to="/admin">
+              <Link to="/admin-login">
                 Admin Portal
               </Link>
             </Button>
