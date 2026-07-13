@@ -566,6 +566,66 @@ export default function Admin() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Settings */}
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Settings</CardTitle>
+                <CardDescription>
+                  Set the activation amount and your Paystack API keys. The secret key is stored securely and only used server-side.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 max-w-xl">
+                <div>
+                  <Label htmlFor="amt">Activation Amount (₦)</Label>
+                  <Input
+                    id="amt"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={settingsForm.activation_amount}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, activation_amount: e.target.value })}
+                    className="mt-1"
+                    placeholder="5000"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pk">Paystack Public Key</Label>
+                  <Input
+                    id="pk"
+                    type="text"
+                    value={settingsForm.paystack_public_key}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, paystack_public_key: e.target.value })}
+                    className="mt-1 font-mono text-xs"
+                    placeholder="pk_live_... or pk_test_..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sk">Paystack Secret Key</Label>
+                  <Input
+                    id="sk"
+                    type="password"
+                    value={settingsForm.paystack_secret_key}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, paystack_secret_key: e.target.value })}
+                    className="mt-1 font-mono text-xs"
+                    placeholder="sk_live_... or sk_test_..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Never shared with the browser — only used from the backend to initialize and verify transactions.
+                  </p>
+                </div>
+                <Button
+                  onClick={saveSettings}
+                  disabled={isSavingSettings}
+                  className="gradient-primary hover:opacity-90"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSavingSettings ? "Saving..." : "Save Settings"}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
     </div>
