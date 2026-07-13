@@ -143,23 +143,70 @@ export default function Admin() {
   };
 
   const saveSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      const entries = Object.entries(settingsForm);
-      for (const [key, value] of entries) {
-        const { error } = await supabase
-          .from("admin_settings")
-          .upsert({ setting_key: key, setting_value: value }, { onConflict: "setting_key" });
-        if (error) throw error;
-      }
-      toast({ title: "Settings saved", description: "Payment settings have been updated." });
-      fetchData();
-    } catch (e: any) {
-      toast({ title: "Failed to save", description: e.message, variant: "destructive" });
-    } finally {
-      setIsSavingSettings(false);
+  setIsSavingSettings(true);
+
+  try {
+    // Get current activation price
+    const { data: currentPrice } = await supabase
+      .from("admin_settings")
+      .select("setting_value")
+      .eq("setting_key", "activation_amount")
+      .maybeSingle();
+
+    const priceChanged =
+      currentPrice?.setting_value &&
+      currentPrice.setting_value !== settingsForm.activation_amount;
+
+    // Save settings
+    const entries = Object.entries(settingsForm);
+
+    for (const [key, value] of entries) {
+      const { error } = await supabase
+        .from("admin_settings")
+        .upsert(
+          { setting_key: key, setting_value: value },
+          { onConflict: "setting_key" }
+        );
+
+      if (error) throw error;
     }
-  };
+
+    // If activation price changed, deactivate all users
+    if (priceChanged) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          status: "pending",
+          activated_at: null,
+        })
+        .neq("status", "pending");
+
+      if (error) throw error;
+
+      toast({
+        title: "Price changed",
+        description:
+          "All accounts have been locked and will require reactivation.",
+      });
+    } else {
+      toast({
+        title: "Settings saved",
+        description: "Payment settings have been updated.",
+      });
+    }
+
+    fetchData();
+
+  } catch (e: any) {
+    toast({
+      title: "Failed to save",
+      description: e.message,
+      variant: "destructive",
+    });
+  } finally {
+    setIsSavingSettings(false);
+  }
+};
 
   const generateCode = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
