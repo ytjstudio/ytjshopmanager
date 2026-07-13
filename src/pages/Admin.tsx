@@ -313,12 +313,11 @@ export default function Admin() {
           </Card>
         </div>
 
-        {/* Main Content */}
-        <Tabs defaultValue="receipts" className="space-y-6">
+        <Tabs defaultValue="payments" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="receipts" className="flex items-center gap-2">
+            <TabsTrigger value="payments" className="flex items-center gap-2">
               <Receipt className="h-4 w-4" />
-              Payment Receipts
+              Payments
             </TabsTrigger>
             <TabsTrigger value="codes" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
@@ -328,83 +327,69 @@ export default function Admin() {
               <Users className="h-4 w-4" />
               Users
             </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              Settings
+            </TabsTrigger>
           </TabsList>
 
-          {/* Payment Receipts */}
-          <TabsContent value="receipts">
+          {/* Payments */}
+          <TabsContent value="payments">
             <Card>
               <CardHeader>
-                <CardTitle>Payment Receipts</CardTitle>
+                <CardTitle>Paystack Payments</CardTitle>
                 <CardDescription>
-                  Review submitted payment proofs from users
+                  Successful payments are ready for activation — send the user a code via WhatsApp.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {receipts.length === 0 ? (
+                {payments.length === 0 ? (
                   <div className="text-center py-12">
                     <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No receipts submitted yet</p>
+                    <p className="text-muted-foreground">No payments yet</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Business</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
                           <TableHead>WhatsApp</TableHead>
-                          <TableHead>Submitted</TableHead>
+                          <TableHead>Amount</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Receipt</TableHead>
+                          <TableHead>Reference</TableHead>
+                          <TableHead>Date</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {receipts.map((receipt) => (
-                          <TableRow key={receipt.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">
-                                  {receipt.profiles?.business_name || "Unknown"}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {receipt.profiles?.email || ""}
-                                </p>
-                              </div>
-                            </TableCell>
+                        {payments.map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell className="font-medium">{p.name}</TableCell>
+                            <TableCell>{p.email}</TableCell>
                             <TableCell>
                               <a
-                                href={`https://wa.me/${receipt.whatsapp_number.replace(/\D/g, "")}`}
+                                href={`https://wa.me/${p.whatsapp_number.replace(/\D/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline"
                               >
-                                {receipt.whatsapp_number}
+                                {p.whatsapp_number}
                               </a>
                             </TableCell>
-                            <TableCell>
-                              {format(new Date(receipt.created_at), "MMM d, yyyy")}
-                            </TableCell>
+                            <TableCell>₦{Number(p.amount).toLocaleString()}</TableCell>
                             <TableCell>
                               <Badge
-                                variant={
-                                  receipt.status === "pending"
-                                    ? "secondary"
-                                    : "default"
-                                }
+                                variant={p.status === "success" ? "default" : "secondary"}
+                                className={p.status === "success" ? "bg-success text-success-foreground" : ""}
                               >
-                                {receipt.status}
+                                {p.status === "success" ? "Ready for Activation" : p.status}
                               </Badge>
                             </TableCell>
+                            <TableCell className="font-mono text-xs">{p.transaction_reference}</TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openReceipt(receipt.receipt_url)}
-                              >
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                View
-                              </Button>
+                              {format(new Date(p.paid_at || p.created_at), "MMM d, yyyy")}
                             </TableCell>
-
                           </TableRow>
                         ))}
                       </TableBody>
