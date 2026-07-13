@@ -22,26 +22,29 @@ import {
   Users,
   Plus,
   Copy,
-  ExternalLink,
   CheckCircle2,
   Clock,
   Store,
   Trash2,
+  Settings as SettingsIcon,
+  Save,
 } from "lucide-react";
 import { format } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 
-interface PaymentReceipt {
+interface Payment {
   id: string;
-  profile_id: string;
-  receipt_url: string;
+  name: string;
+  email: string;
   whatsapp_number: string;
+  amount: number;
+  transaction_reference: string;
+  paystack_reference: string | null;
   status: string;
+  paid_at: string | null;
   created_at: string;
-  profiles?: {
-    business_name: string;
-    email: string;
-  };
 }
 
 interface ActivationCode {
@@ -65,10 +68,16 @@ interface Profile {
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [codes, setCodes] = useState<ActivationCode[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    activation_amount: "",
+    paystack_public_key: "",
+    paystack_secret_key: "",
+  });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
