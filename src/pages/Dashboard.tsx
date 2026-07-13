@@ -23,7 +23,7 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const { profile, isAdmin, loading } = useAuth();
+  const { user, profile, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalItems: 0,
@@ -33,10 +33,10 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    if (!loading && !profile) {
-      navigate("/auth");
-    }
-  }, [profile, loading, navigate]);
+  if (!loading && !user) {
+    navigate("/auth");
+  }
+}, [user, loading, navigate]);
 
   useEffect(() => {
     if (profile?.status === "active" || isAdmin) {
