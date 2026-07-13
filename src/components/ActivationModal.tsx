@@ -1,13 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BANK_DETAILS } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Copy, Upload, Phone, CheckCircle2, AlertCircle, CreditCard, Key } from "lucide-react";
+import { Phone, CheckCircle2, AlertCircle, CreditCard, Key } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ActivationModalProps {
@@ -15,113 +14,147 @@ interface ActivationModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+declare global {
+  interface Window { PaystackPop?: any }
+}
+
+function loadPaystackScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.PaystackPop) return resolve();
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://js.paystack.co/v1/inline.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Failed to load Paystack")));
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = "https://js.paystack.co/v1/inline.js";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Failed to load Paystack"));
+    document.head.appendChild(s);
+  });
+}
+
 export default function ActivationModal({ open, onOpenChange }: ActivationModalProps) {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, user } = useAuth();
   const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [activationCode, setActivationCode] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
+  const [amount, setAmount] = useState<number | null>(null);
+  const [publicKey, setPublicKey] = useState<string>("");
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: `${label} copied to clipboard`,
-    });
-  };
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await supabase.rpc("get_public_payment_settings");
+      const row = Array.isArray(data) ? data[0] : data;
+      setAmount(Number(row?.activation_amount || 0));
+      setPublicKey(row?.paystack_public_key || "");
+    })();
+  }, [open]);
 
-  const handleReceiptUpload = async () => {
-    if (!receiptFile || !whatsappNumber || !profile) {
-      toast({
-        title: "Missing information",
-        description: "Please upload a receipt and enter your WhatsApp number.",
-        variant: "destructive",
-      });
+  const handlePay = async () => {
+    if (!whatsappNumber.trim() || whatsappNumber.trim().length < 6) {
+      toast({ title: "WhatsApp number required", description: "Enter a valid WhatsApp number first.", variant: "destructive" });
+      return;
+    }
+    if (!publicKey) {
+      toast({ title: "Payment unavailable", description: "Paystack is not configured yet. Please contact support.", variant: "destructive" });
+      return;
+    }
+    if (!amount || amount <= 0) {
+      toast({ title: "Payment unavailable", description: "Activation amount is not set.", variant: "destructive" });
       return;
     }
 
-    setIsUploading(true);
-
+    setIsPaying(true);
     try {
-      const fileExt = receiptFile.name.split('.').pop();
-      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+      await loadPaystackScript();
 
-      const { error: uploadError } = await supabase.storage
-        .from("receipts")
-        .upload(fileName, receiptFile);
-
-      if (uploadError) throw uploadError;
-
-      // Bucket is private; store the object path and generate signed URLs on demand.
-      const { error: insertError } = await supabase
-        .from("payment_receipts")
-        .insert({
-          profile_id: profile.id,
-          receipt_url: fileName,
-          whatsapp_number: whatsappNumber,
-        });
-
-      if (insertError) throw insertError;
-
-      toast({
-        title: "Receipt uploaded!",
-        description: "Your payment receipt has been submitted. We'll review it shortly.",
+      const { data, error } = await supabase.functions.invoke("paystack-init", {
+        body: { whatsapp_number: whatsappNumber.trim() },
       });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      setReceiptFile(null);
-      setWhatsappNumber("");
-    } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive",
+      const reference: string = data.reference;
+
+      const handler = window.PaystackPop.setup({
+        key: publicKey,
+        email: user?.email || profile?.email,
+        amount: Math.round(amount * 100),
+        currency: "NGN",
+        ref: reference,
+        metadata: {
+          custom_fields: [
+            { display_name: "WhatsApp", variable_name: "whatsapp", value: whatsappNumber.trim() },
+          ],
+        },
+        callback: (response: { reference: string }) => {
+          (async () => {
+            try {
+              const { data: v, error: vErr } = await supabase.functions.invoke("paystack-verify", {
+                body: { reference: response.reference },
+              });
+              if (vErr) throw vErr;
+              if (v?.error) throw new Error(v.error);
+              if (v?.success) {
+                toast({
+                  title: "Payment received successfully",
+                  description: "Your payment is being reviewed. Your activation code will be sent to the WhatsApp number you provided.",
+                });
+              } else {
+                toast({
+                  title: "Payment not confirmed",
+                  description: "We couldn't verify this payment. Please contact support.",
+                  variant: "destructive",
+                });
+              }
+            } catch (e: any) {
+              toast({ title: "Verification failed", description: e.message, variant: "destructive" });
+            } finally {
+              setIsPaying(false);
+            }
+          })();
+        },
+        onClose: () => {
+          setIsPaying(false);
+          toast({
+            title: "Payment cancelled",
+            description: "Please try again when you are ready.",
+          });
+        },
       });
-    } finally {
-      setIsUploading(false);
+      handler.openIframe();
+    } catch (e: any) {
+      setIsPaying(false);
+      toast({ title: "Could not start payment", description: e.message, variant: "destructive" });
     }
   };
-
 
   const handleActivation = async () => {
     if (!activationCode.trim() || !profile) {
-      toast({
-        title: "Enter activation code",
-        description: "Please enter your activation code.",
-        variant: "destructive",
-      });
+      toast({ title: "Enter activation code", description: "Please enter your activation code.", variant: "destructive" });
       return;
     }
-
     setIsActivating(true);
-
     try {
       const { data, error } = await supabase.functions.invoke("redeem-activation-code", {
         body: { code: activationCode.trim().toUpperCase() },
       });
-
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
       await refreshProfile();
-
-      toast({
-        title: "Account activated!",
-        description: "Your account is now fully active. Enjoy Ruto Shop Manager!",
-      });
-
+      toast({ title: "Account activated!", description: "Your account is now fully active. Enjoy Ruto Shop Manager!" });
       onOpenChange(false);
     } catch (error: any) {
-      toast({
-        title: "Activation failed",
-        description: error.message || "Could not redeem this code.",
-        variant: "destructive",
-      });
+      toast({ title: "Activation failed", description: error.message || "Could not redeem this code.", variant: "destructive" });
     } finally {
       setIsActivating(false);
     }
   };
-
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -132,7 +165,7 @@ export default function ActivationModal({ open, onOpenChange }: ActivationModalP
             Account Activation Required
           </DialogTitle>
           <DialogDescription>
-            Complete the payment and enter your activation code to unlock all features.
+            Pay with Paystack, then enter the activation code we send to your WhatsApp to unlock all features.
           </DialogDescription>
         </DialogHeader>
 
@@ -149,96 +182,41 @@ export default function ActivationModal({ open, onOpenChange }: ActivationModalP
           </TabsList>
 
           <TabsContent value="payment" className="space-y-6 mt-4">
-            {/* Bank Details */}
-            <div className="bg-secondary/50 rounded-lg p-4 space-y-3">
-              <h4 className="font-semibold flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-primary" />
-                Bank Details
-              </h4>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Account Name:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{BANK_DETAILS.accountName}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => copyToClipboard(BANK_DETAILS.accountName, "Account name")}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Account Number:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium font-mono">{BANK_DETAILS.accountNumber}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => copyToClipboard(BANK_DETAILS.accountNumber, "Account number")}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Bank:</span>
-                  <span className="font-medium">{BANK_DETAILS.bankName}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Reference:</span>
-                  <span className="font-medium">{profile?.business_name || "Your Business Name"}</span>
-                </div>
-              </div>
+            <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
+              <p className="text-sm text-muted-foreground">Activation fee</p>
+              <p className="text-3xl font-bold">
+                ₦{(amount ?? 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">One-time payment via Paystack</p>
             </div>
 
-            {/* Upload Receipt */}
-            <div className="space-y-4">
-              <h4 className="font-semibold flex items-center gap-2">
-                <Upload className="h-4 w-4 text-primary" />
-                Upload Payment Proof
-              </h4>
-
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="whatsapp">WhatsApp Number</Label>
-                  <div className="relative mt-1">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="whatsapp"
-                      type="tel"
-                      placeholder="+27 12 345 6789"
-                      value={whatsappNumber}
-                      onChange={(e) => setWhatsappNumber(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="receipt">Payment Receipt</Label>
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="whatsapp">WhatsApp Number</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="receipt"
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                    className="mt-1"
+                    id="whatsapp"
+                    type="tel"
+                    placeholder="+234 800 000 0000"
+                    value={whatsappNumber}
+                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                    className="pl-10"
                   />
                 </div>
-
-                <Button
-                  onClick={handleReceiptUpload}
-                  disabled={isUploading || !receiptFile || !whatsappNumber}
-                  className="w-full"
-                >
-                  {isUploading ? "Uploading..." : "Submit Payment Proof"}
-                  <Upload className="ml-2 h-4 w-4" />
-                </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  We'll send your activation code to this number after payment is confirmed.
+                </p>
               </div>
+
+              <Button
+                onClick={handlePay}
+                disabled={isPaying || !whatsappNumber.trim() || !amount}
+                className="w-full gradient-primary hover:opacity-90"
+              >
+                {isPaying ? "Processing..." : "Pay with Paystack"}
+                <CreditCard className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           </TabsContent>
 
