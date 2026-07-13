@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Store, Mail, Lock, Building2, ArrowRight } from "lucide-react";
+import { Store, Mail, Lock, Building2, ArrowRight, Shield } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 export default function Auth() {
@@ -337,9 +337,17 @@ export default function Auth() {
           </Tabs>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          By signing up, you agree to our Terms of Service and Privacy Policy
-        </p>
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <Button variant="outline" asChild className="w-full">
+            <Link to="/admin-login">
+              <Shield className="mr-2 h-4 w-4" />
+              Admin Portal
+            </Link>
+          </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            By signing up, you agree to our Terms of Service and Privacy Policy
+          </p>
+        </div>
       </div>
     </div>
   );
