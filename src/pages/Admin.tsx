@@ -106,34 +106,9 @@ export default function Admin() {
     if (isAdmin) fetchData();
   }, [isAdmin]);
 
-  const signedUrlFor = async (receiptUrl: string): Promise<string | null> => {
-    // receipt_url may be either a legacy public URL or a bare file name
-    let path = receiptUrl;
-    const marker = "/receipts/";
-    const idx = receiptUrl.indexOf(marker);
-    if (idx !== -1) path = receiptUrl.substring(idx + marker.length);
-    const { data } = await supabase.storage
-      .from("receipts")
-      .createSignedUrl(path, 60 * 10);
-    return data?.signedUrl ?? null;
-  };
-
-  const openReceipt = async (receiptUrl: string) => {
-    const url = await signedUrlFor(receiptUrl);
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
-    } else {
-      toast({
-        title: "Could not open receipt",
-        description: "The file could not be located.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const fetchData = async () => {
-    const { data: receiptsData } = await supabase
-      .from("payment_receipts")
+    const { data: paymentsData } = await supabase
+      .from("payments")
       .select("*")
       .order("created_at", { ascending: false });
 
@@ -147,16 +122,43 @@ export default function Admin() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (receiptsData && profilesData) {
-      const mappedReceipts = receiptsData.map((receipt) => ({
-        ...receipt,
-        profiles: profilesData.find((p) => p.id === receipt.profile_id),
-      }));
-      setReceipts(mappedReceipts as PaymentReceipt[]);
-    }
+    const { data: settingsData } = await supabase
+      .from("admin_settings")
+      .select("setting_key, setting_value")
+      .in("setting_key", ["activation_amount", "paystack_public_key", "paystack_secret_key"]);
 
+    if (paymentsData) setPayments(paymentsData as unknown as Payment[]);
     if (codesData) setCodes(codesData);
     if (profilesData) setProfiles(profilesData as Profile[]);
+
+    if (settingsData) {
+      const map: Record<string, string> = {};
+      settingsData.forEach((s: any) => { map[s.setting_key] = s.setting_value; });
+      setSettingsForm({
+        activation_amount: map.activation_amount || "",
+        paystack_public_key: map.paystack_public_key || "",
+        paystack_secret_key: map.paystack_secret_key || "",
+      });
+    }
+  };
+
+  const saveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const entries = Object.entries(settingsForm);
+      for (const [key, value] of entries) {
+        const { error } = await supabase
+          .from("admin_settings")
+          .upsert({ setting_key: key, setting_value: value }, { onConflict: "setting_key" });
+        if (error) throw error;
+      }
+      toast({ title: "Settings saved", description: "Payment settings have been updated." });
+      fetchData();
+    } catch (e: any) {
+      toast({ title: "Failed to save", description: e.message, variant: "destructive" });
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   const generateCode = () => {
