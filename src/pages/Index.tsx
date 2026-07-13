@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,19 +13,7 @@ import {
 } from "lucide-react";
 
 export default function Index() {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && user) {
-      navigate("/dashboard");
-    }
-  }, [user, loading, navigate]);
-
-  // Show landing page even while loading - don't block on auth check
-  if (!loading && user) {
-    return null; // Will redirect via useEffect
-  }
+  const { user } = useAuth();
 
   const features = [
     {
@@ -69,12 +56,21 @@ export default function Index() {
                 Admin Portal
               </Link>
             </Button>
-            <Button asChild className="gradient-primary hover:opacity-90">
-              <Link to="/auth">
-                Get Started
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+            {user ? (
+              <Button asChild className="gradient-primary hover:opacity-90">
+                <Link to="/dashboard">
+                  Go to Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild className="gradient-primary hover:opacity-90">
+                <Link to="/auth">
+                  Get Started
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       </nav>

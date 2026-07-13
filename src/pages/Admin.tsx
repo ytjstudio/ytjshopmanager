@@ -22,26 +22,29 @@ import {
   Users,
   Plus,
   Copy,
-  ExternalLink,
   CheckCircle2,
   Clock,
   Store,
   Trash2,
+  Settings as SettingsIcon,
+  Save,
 } from "lucide-react";
 import { format } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 
-interface PaymentReceipt {
+interface Payment {
   id: string;
-  profile_id: string;
-  receipt_url: string;
+  name: string;
+  email: string;
   whatsapp_number: string;
+  amount: number;
+  transaction_reference: string;
+  paystack_reference: string | null;
   status: string;
+  paid_at: string | null;
   created_at: string;
-  profiles?: {
-    business_name: string;
-    email: string;
-  };
 }
 
 interface ActivationCode {
@@ -65,10 +68,16 @@ interface Profile {
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [codes, setCodes] = useState<ActivationCode[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    activation_amount: "",
+    paystack_public_key: "",
+    paystack_secret_key: "",
+  });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -97,34 +106,9 @@ export default function Admin() {
     if (isAdmin) fetchData();
   }, [isAdmin]);
 
-  const signedUrlFor = async (receiptUrl: string): Promise<string | null> => {
-    // receipt_url may be either a legacy public URL or a bare file name
-    let path = receiptUrl;
-    const marker = "/receipts/";
-    const idx = receiptUrl.indexOf(marker);
-    if (idx !== -1) path = receiptUrl.substring(idx + marker.length);
-    const { data } = await supabase.storage
-      .from("receipts")
-      .createSignedUrl(path, 60 * 10);
-    return data?.signedUrl ?? null;
-  };
-
-  const openReceipt = async (receiptUrl: string) => {
-    const url = await signedUrlFor(receiptUrl);
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
-    } else {
-      toast({
-        title: "Could not open receipt",
-        description: "The file could not be located.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const fetchData = async () => {
-    const { data: receiptsData } = await supabase
-      .from("payment_receipts")
+    const { data: paymentsData } = await supabase
+      .from("payments")
       .select("*")
       .order("created_at", { ascending: false });
 
@@ -138,16 +122,43 @@ export default function Admin() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (receiptsData && profilesData) {
-      const mappedReceipts = receiptsData.map((receipt) => ({
-        ...receipt,
-        profiles: profilesData.find((p) => p.id === receipt.profile_id),
-      }));
-      setReceipts(mappedReceipts as PaymentReceipt[]);
-    }
+    const { data: settingsData } = await supabase
+      .from("admin_settings")
+      .select("setting_key, setting_value")
+      .in("setting_key", ["activation_amount", "paystack_public_key", "paystack_secret_key"]);
 
+    if (paymentsData) setPayments(paymentsData as unknown as Payment[]);
     if (codesData) setCodes(codesData);
     if (profilesData) setProfiles(profilesData as Profile[]);
+
+    if (settingsData) {
+      const map: Record<string, string> = {};
+      settingsData.forEach((s: any) => { map[s.setting_key] = s.setting_value; });
+      setSettingsForm({
+        activation_amount: map.activation_amount || "",
+        paystack_public_key: map.paystack_public_key || "",
+        paystack_secret_key: map.paystack_secret_key || "",
+      });
+    }
+  };
+
+  const saveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const entries = Object.entries(settingsForm);
+      for (const [key, value] of entries) {
+        const { error } = await supabase
+          .from("admin_settings")
+          .upsert({ setting_key: key, setting_value: value }, { onConflict: "setting_key" });
+        if (error) throw error;
+      }
+      toast({ title: "Settings saved", description: "Payment settings have been updated." });
+      fetchData();
+    } catch (e: any) {
+      toast({ title: "Failed to save", description: e.message, variant: "destructive" });
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   const generateCode = () => {
@@ -302,12 +313,11 @@ export default function Admin() {
           </Card>
         </div>
 
-        {/* Main Content */}
-        <Tabs defaultValue="receipts" className="space-y-6">
+        <Tabs defaultValue="payments" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="receipts" className="flex items-center gap-2">
+            <TabsTrigger value="payments" className="flex items-center gap-2">
               <Receipt className="h-4 w-4" />
-              Payment Receipts
+              Payments
             </TabsTrigger>
             <TabsTrigger value="codes" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
@@ -317,83 +327,69 @@ export default function Admin() {
               <Users className="h-4 w-4" />
               Users
             </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              Settings
+            </TabsTrigger>
           </TabsList>
 
-          {/* Payment Receipts */}
-          <TabsContent value="receipts">
+          {/* Payments */}
+          <TabsContent value="payments">
             <Card>
               <CardHeader>
-                <CardTitle>Payment Receipts</CardTitle>
+                <CardTitle>Paystack Payments</CardTitle>
                 <CardDescription>
-                  Review submitted payment proofs from users
+                  Successful payments are ready for activation — send the user a code via WhatsApp.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {receipts.length === 0 ? (
+                {payments.length === 0 ? (
                   <div className="text-center py-12">
                     <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No receipts submitted yet</p>
+                    <p className="text-muted-foreground">No payments yet</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Business</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
                           <TableHead>WhatsApp</TableHead>
-                          <TableHead>Submitted</TableHead>
+                          <TableHead>Amount</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Receipt</TableHead>
+                          <TableHead>Reference</TableHead>
+                          <TableHead>Date</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {receipts.map((receipt) => (
-                          <TableRow key={receipt.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">
-                                  {receipt.profiles?.business_name || "Unknown"}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {receipt.profiles?.email || ""}
-                                </p>
-                              </div>
-                            </TableCell>
+                        {payments.map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell className="font-medium">{p.name}</TableCell>
+                            <TableCell>{p.email}</TableCell>
                             <TableCell>
                               <a
-                                href={`https://wa.me/${receipt.whatsapp_number.replace(/\D/g, "")}`}
+                                href={`https://wa.me/${p.whatsapp_number.replace(/\D/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline"
                               >
-                                {receipt.whatsapp_number}
+                                {p.whatsapp_number}
                               </a>
                             </TableCell>
-                            <TableCell>
-                              {format(new Date(receipt.created_at), "MMM d, yyyy")}
-                            </TableCell>
+                            <TableCell>₦{Number(p.amount).toLocaleString()}</TableCell>
                             <TableCell>
                               <Badge
-                                variant={
-                                  receipt.status === "pending"
-                                    ? "secondary"
-                                    : "default"
-                                }
+                                variant={p.status === "success" ? "default" : "secondary"}
+                                className={p.status === "success" ? "bg-success text-success-foreground" : ""}
                               >
-                                {receipt.status}
+                                {p.status === "success" ? "Ready for Activation" : p.status}
                               </Badge>
                             </TableCell>
+                            <TableCell className="font-mono text-xs">{p.transaction_reference}</TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openReceipt(receipt.receipt_url)}
-                              >
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                View
-                              </Button>
+                              {format(new Date(p.paid_at || p.created_at), "MMM d, yyyy")}
                             </TableCell>
-
                           </TableRow>
                         ))}
                       </TableBody>
@@ -567,6 +563,66 @@ export default function Admin() {
                     </Table>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Settings */}
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Settings</CardTitle>
+                <CardDescription>
+                  Set the activation amount and your Paystack API keys. The secret key is stored securely and only used server-side.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 max-w-xl">
+                <div>
+                  <Label htmlFor="amt">Activation Amount (₦)</Label>
+                  <Input
+                    id="amt"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={settingsForm.activation_amount}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, activation_amount: e.target.value })}
+                    className="mt-1"
+                    placeholder="5000"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pk">Paystack Public Key</Label>
+                  <Input
+                    id="pk"
+                    type="text"
+                    value={settingsForm.paystack_public_key}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, paystack_public_key: e.target.value })}
+                    className="mt-1 font-mono text-xs"
+                    placeholder="pk_live_... or pk_test_..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sk">Paystack Secret Key</Label>
+                  <Input
+                    id="sk"
+                    type="password"
+                    value={settingsForm.paystack_secret_key}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, paystack_secret_key: e.target.value })}
+                    className="mt-1 font-mono text-xs"
+                    placeholder="sk_live_... or sk_test_..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Never shared with the browser — only used from the backend to initialize and verify transactions.
+                  </p>
+                </div>
+                <Button
+                  onClick={saveSettings}
+                  disabled={isSavingSettings}
+                  className="gradient-primary hover:opacity-90"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSavingSettings ? "Saving..." : "Save Settings"}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
