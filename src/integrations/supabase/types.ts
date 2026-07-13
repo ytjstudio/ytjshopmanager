@@ -149,6 +149,62 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          email: string
+          id: string
+          name: string
+          paid_at: string | null
+          paystack_reference: string | null
+          profile_id: string
+          status: string
+          transaction_reference: string
+          updated_at: string
+          user_id: string
+          whatsapp_number: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          paid_at?: string | null
+          paystack_reference?: string | null
+          profile_id: string
+          status?: string
+          transaction_reference: string
+          updated_at?: string
+          user_id: string
+          whatsapp_number: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          paid_at?: string | null
+          paystack_reference?: string | null
+          profile_id?: string
+          status?: string
+          transaction_reference?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           activated_at: string | null
@@ -288,7 +344,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_public_payment_settings: {
+        Args: never
+        Returns: {
+          activation_amount: string
+          paystack_public_key: string
+        }[]
+      }
     }
     Enums: {
       account_status: "pending" | "active" | "suspended"
